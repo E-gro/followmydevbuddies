@@ -11,11 +11,15 @@ import {
   Moon,
   LogOut,
   ShieldCheck,
+  GitPullRequest,
+  ExternalLink,
 } from 'lucide-react';
 import { ThemeMode } from '../types';
 import { GitHubAuthUser } from './GitHubAuthModal';
 import { SocialIcon } from './SocialIcon';
 import { FmdbLogo } from './FmdbLogo';
+
+const GITHUB_REPO_URL = 'https://github.com/E-gro/followmydevbuddies';
 
 interface HeaderProps {
   totalBuddies: number;
@@ -52,6 +56,35 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="relative border-b border-slate-200/80 dark:border-slate-800/80 bg-white/85 dark:bg-[#090B10]/90 backdrop-blur-xl transition-colors">
       {/* Ambient top glow */}
       <div className="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-48 max-w-4xl bg-gradient-to-r from-emerald-500/15 via-cyan-500/15 to-indigo-500/15 blur-3xl" />
+
+      {/* Open Source Collaboration Invite Banner */}
+      <div className="border-b border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <GitPullRequest className="h-3 w-3" />
+              Open Source
+            </span>
+            <span>
+              Este portal é da comunidade! Tem ideias de features, melhorias de UI ou automações?{' '}
+              <strong className="text-slate-900 dark:text-white font-semibold">
+                Colabore com o projeto no GitHub!
+              </strong>
+            </span>
+          </div>
+
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 shadow-xs hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all"
+          >
+            <SocialIcon platform="github" className="h-3.5 w-3.5" />
+            <span>Repositório no GitHub</span>
+            <ExternalLink className="h-3 w-3 opacity-70" />
+          </a>
+        </div>
+      </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Top bar */}

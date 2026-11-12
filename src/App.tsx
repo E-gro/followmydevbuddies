@@ -24,21 +24,20 @@ import { FmdbLogo } from './components/FmdbLogo';
 import {
   Sparkles,
   UserPlus,
-  RotateCcw,
   CheckCircle2,
   ShieldCheck,
   Cloud,
 } from 'lucide-react';
 
 const STORAGE_KEYS = {
-  BUDDIES: 'fmdb_buddies_v3',
-  FOLLOWED: 'fmdb_followed_v1',
+  BUDDIES: 'fmdb_buddies_v4_clean',
+  FOLLOWED: 'fmdb_followed_v2_clean',
   AUTO_MARK: 'fmdb_automark_v1',
   MOBILE_DEEPLINK: 'fmdb_deeplink_v1',
   GH_TOKEN: 'fmdb_gh_token_v1',
   THEME: 'fmdb_theme_v1',
-  OWN_ID: 'fmdb_own_buddy_id_v1',
-  AUTH_USER: 'fmdb_gh_auth_user_v1',
+  OWN_ID: 'fmdb_own_buddy_id_v2',
+  AUTH_USER: 'fmdb_gh_auth_user_v2',
 };
 
 export function App() {
@@ -61,7 +60,7 @@ export function App() {
       const saved = localStorage.getItem(STORAGE_KEYS.BUDDIES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {
       // ignore
@@ -109,11 +108,18 @@ export function App() {
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 3500);
+  };
+
   // Initial Cloud Database Fetch
   useEffect(() => {
     let active = true;
     fetchCloudBuddies().then((remoteBuddies) => {
-      if (active && remoteBuddies && remoteBuddies.length > 0) {
+      if (active && remoteBuddies !== null) {
         setBuddies(remoteBuddies);
         setCloudSynced(true);
       }
@@ -121,6 +127,44 @@ export function App() {
     return () => {
       active = false;
     };
+  }, []);
+
+  // Check if returning from GitHub OAuth Callback (#gh_token=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash;
+    if (hash.startsWith('#gh_token=')) {
+      const token = decodeURIComponent(hash.replace('#gh_token=', '').trim());
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (token) {
+        fetch('https://api.github.com/user', {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+          },
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data && data.id && data.login) {
+              const user: GitHubAuthUser = {
+                githubId: data.id,
+                login: data.login,
+                name: data.name || data.login,
+                avatarUrl: data.avatar_url,
+                bio: data.bio || '',
+                company: data.company ? data.company.replace(/^@/, '') : '',
+                blog: data.blog || '',
+                twitterUsername: data.twitter_username || '',
+                accessToken: token,
+              };
+              setAuthUser(user);
+              setGithubToken(token);
+              showToast(`Autenticado via GitHub OAuth como @${user.login}!`);
+            }
+          })
+          .catch(() => {});
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -167,13 +211,6 @@ export function App() {
     localStorage.setItem(STORAGE_KEYS.GH_TOKEN, githubToken);
   }, [githubToken]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 3200);
-  };
-
   // Compute totals and per-platform link counts
   const { totalLinks, followedCount, platformCounts } = useMemo(() => {
     let total = 0;
@@ -198,11 +235,14 @@ export function App() {
 
   // Sync user's own follow score to cloud DB whenever followedCount changes
   useEffect(() => {
+    if (!authUser) return;
+    const activeToken = authUser.accessToken || githubToken;
+    if (!activeToken) return;
+
     const myCard = buddies.find(
       (b) =>
-        b.id === ownBuddyId ||
-        b.isOwnerCard ||
-        (authUser && b.socials.github?.toLowerCase() === authUser.login.toLowerCase())
+        b.id === `gh-${authUser.githubId}` ||
+        b.socials.github?.toLowerCase() === authUser.login.toLowerCase()
     );
     if (myCard && myCard.communityFollowsDone !== followedCount) {
       setBuddies((prev) =>
@@ -210,9 +250,9 @@ export function App() {
           b.id === myCard.id ? { ...b, communityFollowsDone: followedCount } : b
         )
       );
-      syncCloudFollowScore(myCard.id, followedCount);
+      syncCloudFollowScore(myCard.id, followedCount, activeToken);
     }
-  }, [followedCount, ownBuddyId, authUser, buddies]);
+  }, [followedCount, authUser, githubToken, buddies]);
 
   // Filter buddies
   const filteredBuddies = useMemo(() => {
@@ -299,8 +339,8 @@ export function App() {
 
     const existing = buddies.find(
       (b) =>
-        b.socials.github?.toLowerCase() === user.login.toLowerCase() ||
-        b.id === `gh-${user.githubId}`
+        b.id === `gh-${user.githubId}` ||
+        b.socials.github?.toLowerCase() === user.login.toLowerCase()
     );
 
     if (existing) {
@@ -318,12 +358,24 @@ export function App() {
   const handleLogout = () => {
     setAuthUser(null);
     setOwnBuddyId('');
+    setGithubToken('');
     showToast('Sessão do GitHub encerrada.');
   };
 
   const handleSaveBuddy = async (savedBuddy: DevBuddy, isEdit: boolean) => {
+    if (!authUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    const activeToken = authUser.accessToken || githubToken;
     const buddyWithScore: DevBuddy = {
       ...savedBuddy,
+      id: `gh-${authUser.githubId}`,
+      socials: {
+        ...savedBuddy.socials,
+        github: authUser.login,
+      },
       communityFollowsDone: followedCount,
     };
 
@@ -331,32 +383,51 @@ export function App() {
       setBuddies((prev) =>
         prev.map((b) => (b.id === buddyWithScore.id ? buddyWithScore : b))
       );
-      showToast(`Card de ${buddyWithScore.name} atualizado com sucesso!`);
     } else {
-      setBuddies((prev) => [buddyWithScore, ...prev]);
+      setBuddies((prev) => [
+        buddyWithScore,
+        ...prev.filter((b) => b.id !== buddyWithScore.id),
+      ]);
       setOwnBuddyId(buddyWithScore.id);
-      showToast(`Perfil de ${buddyWithScore.name} publicado na Amigos do Mag!`);
     }
     setEditingBuddy(null);
 
-    const updatedList = await upsertCloudBuddy(buddyWithScore);
-    if (updatedList) {
-      setBuddies(updatedList);
+    const res = await upsertCloudBuddy(buddyWithScore, activeToken);
+    if (res.ok && res.buddies) {
+      setBuddies(res.buddies);
       setCloudSynced(true);
+      showToast(
+        isEdit
+          ? `Card de @${authUser.login} atualizado no banco!`
+          : `Card de @${authUser.login} publicado na Amigos do Mag!`
+      );
+    } else {
+      showToast(res.error || 'Card salvo localmente.');
     }
   };
 
   const handleOpenEditBuddy = (buddy: DevBuddy) => {
+    if (
+      !authUser ||
+      (buddy.id !== `gh-${authUser.githubId}` &&
+        buddy.socials.github?.toLowerCase() !== authUser.login.toLowerCase())
+    ) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     setEditingBuddy(buddy);
     setIsAddModalOpen(true);
   };
 
   const handleOpenEditOwnProfile = () => {
+    if (!authUser) {
+      setIsAuthModalOpen(true);
+      return;
+    }
     const own = buddies.find(
       (b) =>
-        b.id === ownBuddyId ||
-        b.isOwnerCard ||
-        (authUser && b.socials.github?.toLowerCase() === authUser.login.toLowerCase())
+        b.id === `gh-${authUser.githubId}` ||
+        b.socials.github?.toLowerCase() === authUser.login.toLowerCase()
     );
     if (own) {
       handleOpenEditBuddy(own);
@@ -370,14 +441,15 @@ export function App() {
     buddyId: string,
     githubUsername: string
   ): Promise<boolean> => {
-    if (!githubToken.trim()) return false;
+    const activeToken = authUser?.accessToken || githubToken;
+    if (!activeToken.trim()) return false;
     try {
       const res = await fetch(
         `https://api.github.com/user/following/${encodeURIComponent(githubUsername)}`,
         {
           method: 'PUT',
           headers: {
-            Authorization: `Bearer ${githubToken.trim()}`,
+            Authorization: `Bearer ${activeToken.trim()}`,
             Accept: 'application/vnd.github+json',
             'Content-Length': '0',
           },
@@ -416,14 +488,6 @@ export function App() {
     return { followed, failed };
   };
 
-  const handleResetDemoData = () => {
-    setBuddies(INITIAL_BUDDIES);
-    setFollowedMap({});
-    setOwnBuddyId('');
-    setAuthUser(null);
-    showToast('Dados locais restaurados!');
-  };
-
   return (
     <div
       className={`min-h-screen flex flex-col justify-between transition-colors ${
@@ -446,7 +510,7 @@ export function App() {
           totalBuddies={buddies.length}
           totalLinks={totalLinks}
           followedCount={followedCount}
-          hasGithubToken={Boolean(githubToken.trim())}
+          hasGithubToken={Boolean((authUser?.accessToken || githubToken).trim())}
           authUser={authUser}
           theme={theme}
           onToggleTheme={() =>
@@ -482,9 +546,8 @@ export function App() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredBuddies.map((buddy) => {
                 const isOwn = Boolean(
-                  buddy.id === ownBuddyId ||
-                    buddy.isOwnerCard ||
-                    (authUser &&
+                  authUser &&
+                    (buddy.id === `gh-${authUser.githubId}` ||
                       buddy.socials.github?.toLowerCase() ===
                         authUser.login.toLowerCase())
                 );
@@ -499,7 +562,7 @@ export function App() {
                     selectedPlatform={selectedPlatform}
                     autoMarkOnClick={autoMarkOnClick}
                     useMobileDeepLink={useMobileDeepLink}
-                    githubToken={githubToken}
+                    githubToken={authUser?.accessToken || githubToken}
                     onToggleFollow={handleToggleFollow}
                     onMarkAllForBuddy={handleMarkAllForBuddy}
                     onGithubApiFollow={handleGithubApiFollow}
@@ -509,33 +572,43 @@ export function App() {
               })}
             </div>
           ) : (
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-12 text-center space-y-3 shadow-xs dark:shadow-none">
-              <Sparkles className="mx-auto h-8 w-8 text-emerald-500" />
-              <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                Nenhum dev encontrado com esses filtros
+            <div className="rounded-3xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/40 p-12 text-center space-y-4 shadow-xs dark:shadow-none">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30">
+                <Sparkles className="h-7 w-7 text-emerald-500" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-slate-900 dark:text-white">
+                {buddies.length === 0
+                  ? 'Diretório pronto! Seja o primeiro dev da Amigos do Mag a publicar seu card'
+                  : 'Nenhum dev encontrado com esses filtros'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                Tente limpar a busca, alternar o filtro de status para "Todos" ou entre com seu GitHub para publicar seu perfil!
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                {buddies.length === 0
+                  ? 'Autentique sua conta do GitHub para inaugurar o hub oficial de conexões da comunidade e cadastrar seu Instagram, TikTok, LinkedIn e GitHub.'
+                  : 'Tente limpar a busca ou alternar o filtro de status para "Todos".'}
               </p>
               <div className="pt-2 flex items-center justify-center gap-3">
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSelectedPlatform('all');
-                    setStatusFilter('all');
-                  }}
-                  className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-4 py-2 text-xs font-medium text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-                >
-                  Limpar Filtros
-                </button>
+                {buddies.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedPlatform('all');
+                      setStatusFilter('all');
+                    }}
+                    className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-4 py-2.5 text-xs font-medium text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    Limpar Filtros
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     authUser ? handleOpenEditOwnProfile() : setIsAuthModalOpen(true)
                   }
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-emerald-400 cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 cursor-pointer"
                 >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  <span>{authUser ? 'Meu Card' : 'Entrar com GitHub'}</span>
+                  <UserPlus className="h-4 w-4" />
+                  <span>
+                    {authUser ? 'Publicar Meu Card Agora' : 'Autenticar com GitHub'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -563,24 +636,14 @@ export function App() {
             <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
               <Cloud className="h-3.5 w-3.5" />
               <span>
-                {cloudSynced ? 'Banco Cloud Sincronizado' : 'Banco Local + Cloud Sync'}
+                {cloudSynced ? 'Banco Cloud Sincronizado' : 'Cloud Sync Ativo'}
               </span>
             </span>
 
             <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span>GitHub Auth & Anti-Phishing</span>
+              <span>GitHub Auth Verificado no Servidor</span>
             </span>
-
-            <button
-              type="button"
-              onClick={handleResetDemoData}
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors cursor-pointer"
-              title="Restaurar lista inicial e zerar marcações locais"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Resetar Cache</span>
-            </button>
           </div>
         </div>
       </footer>
@@ -618,7 +681,7 @@ export function App() {
       <GitHubConnectModal
         isOpen={isGithubModalOpen}
         onClose={() => setIsGithubModalOpen(false)}
-        githubToken={githubToken}
+        githubToken={authUser?.accessToken || githubToken}
         onSaveToken={setGithubToken}
         buddies={buddies}
         onBatchGithubFollow={handleBatchGithubFollow}

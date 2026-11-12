@@ -112,3 +112,4 @@ export const FmdbLogo: React.FC<FmdbLogoProps> = ({ className = 'h-10 w-10' }) =
     </svg>
   );
 };
+

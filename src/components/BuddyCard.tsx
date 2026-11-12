@@ -128,20 +128,18 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Edit card button */}
-            <button
-              type="button"
-              onClick={() => onEditBuddy(buddy)}
-              className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px] font-medium transition-all cursor-pointer ${
-                isOwnCard
-                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25'
-                  : 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/70 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-              title="Editar informações, avatar ou links deste card"
-            >
-              <Pencil className="h-2.5 w-2.5" />
-              <span>{isOwnCard ? 'Editar' : ''}</span>
-            </button>
+            {/* Edit card button — strictly only for the authenticated owner of this card */}
+            {isOwnCard && (
+              <button
+                type="button"
+                onClick={() => onEditBuddy(buddy)}
+                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 transition-all cursor-pointer"
+                title="Editar informações, avatar ou links do seu card"
+              >
+                <Pencil className="h-2.5 w-2.5" />
+                <span>Editar</span>
+              </button>
+            )}
 
             {/* Buddy completion pill */}
             <button

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { DevBuddy, FollowedMap, SocialPlatform } from '../types';
 import {
-  PLATFORMS,
+  FOLLOWABLE_PLATFORMS,
   buildSocialUrl,
   formatDisplayHandle,
 } from '../utils/socialLinks';
@@ -49,7 +49,7 @@ export const SpeedRunModal: React.FC<SpeedRunModalProps> = ({
   const pendingQueue = useMemo(() => {
     const items: QueueItem[] = [];
     for (const buddy of buddies) {
-      for (const p of PLATFORMS) {
+      for (const p of FOLLOWABLE_PLATFORMS) {
         if (filterPlatform !== 'all' && filterPlatform !== p.id) continue;
         const val = buddy.socials[p.id];
         if (!val || !val.trim()) continue;
@@ -135,7 +135,7 @@ export const SpeedRunModal: React.FC<SpeedRunModalProps> = ({
           >
             Todas
           </button>
-          {PLATFORMS.map((p) => (
+          {FOLLOWABLE_PLATFORMS.map((p) => (
             <button
               key={p.id}
               onClick={() => {

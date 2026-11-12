@@ -9,6 +9,7 @@ export interface PlatformMeta {
   borderActiveClass: string;
   supportsRealApiFollow?: boolean;
   supportsMobileDeepLink?: boolean;
+  isFollowable?: boolean;
 }
 
 export const PLATFORMS: PlatformMeta[] = [
@@ -80,8 +81,13 @@ export const PLATFORMS: PlatformMeta[] = [
     placeholder: 'https://seudominio.dev',
     colorClass: 'text-amber-600 dark:text-amber-400',
     borderActiveClass: 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    isFollowable: false,
   },
 ];
+
+export const FOLLOWABLE_PLATFORMS: PlatformMeta[] = PLATFORMS.filter(
+  (p) => p.isFollowable !== false
+);
 
 const BLOCKED_URL_SHORTENERS = new Set([
   'bit.ly',

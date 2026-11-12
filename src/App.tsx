@@ -7,7 +7,7 @@ import {
   ThemeMode,
 } from './types';
 import { INITIAL_BUDDIES } from './data/initialBuddies';
-import { PLATFORMS, extractCleanHandle } from './utils/socialLinks';
+import { PLATFORMS, FOLLOWABLE_PLATFORMS, extractCleanHandle } from './utils/socialLinks';
 import {
   fetchCloudBuddies,
   upsertCloudBuddy,
@@ -211,7 +211,7 @@ export function App() {
     localStorage.setItem(STORAGE_KEYS.GH_TOKEN, githubToken);
   }, [githubToken]);
 
-  // Compute totals and per-platform link counts
+  // Compute totals and per-platform link counts (excluding 'website' from followable score totals)
   const { totalLinks, followedCount, platformCounts } = useMemo(() => {
     let total = 0;
     let followed = 0;
@@ -221,10 +221,12 @@ export function App() {
       for (const p of PLATFORMS) {
         const val = b.socials[p.id];
         if (val && val.trim()) {
-          total += 1;
           counts[p.id] = (counts[p.id] || 0) + 1;
-          if (followedMap[`${b.id}:${p.id}`]) {
-            followed += 1;
+          if (p.isFollowable !== false) {
+            total += 1;
+            if (followedMap[`${b.id}:${p.id}`]) {
+              followed += 1;
+            }
           }
         }
       }
@@ -264,23 +266,33 @@ export function App() {
         if (!val || !val.trim()) return false;
       }
 
-      const relevantPlatforms = PLATFORMS.filter((p) => {
-        if (selectedPlatform !== 'all' && selectedPlatform !== p.id) return false;
+      const relevantFollowablePlatforms = FOLLOWABLE_PLATFORMS.filter((p) => {
+        if (selectedPlatform !== 'all' && selectedPlatform !== 'website' && selectedPlatform !== p.id) {
+          return false;
+        }
         const val = buddy.socials[p.id];
         return Boolean(val && val.trim());
       });
 
-      if (relevantPlatforms.length === 0) return false;
+      if (selectedPlatform !== 'website') {
+        if (relevantFollowablePlatforms.length === 0 && !buddy.socials.website?.trim()) {
+          return false;
+        }
 
-      const followedInRelevant = relevantPlatforms.filter(
-        (p) => followedMap[`${buddy.id}:${p.id}`]
-      ).length;
+        const followedInRelevant = relevantFollowablePlatforms.filter(
+          (p) => followedMap[`${buddy.id}:${p.id}`]
+        ).length;
 
-      if (statusFilter === 'pending' && followedInRelevant === relevantPlatforms.length) {
-        return false;
-      }
-      if (statusFilter === 'completed' && followedInRelevant === 0) {
-        return false;
+        if (
+          statusFilter === 'pending' &&
+          (relevantFollowablePlatforms.length === 0 ||
+            followedInRelevant === relevantFollowablePlatforms.length)
+        ) {
+          return false;
+        }
+        if (statusFilter === 'completed' && followedInRelevant === 0) {
+          return false;
+        }
       }
 
       if (q) {
@@ -307,6 +319,7 @@ export function App() {
     platform: SocialPlatform,
     forceState?: boolean
   ) => {
+    if (platform === 'website') return;
     const key = `${buddyId}:${platform}`;
     setFollowedMap((prev) => {
       const nextVal = forceState !== undefined ? forceState : !prev[key];
@@ -317,7 +330,7 @@ export function App() {
   const handleMarkAllForBuddy = (buddy: DevBuddy, targetState: boolean) => {
     setFollowedMap((prev) => {
       const next = { ...prev };
-      for (const p of PLATFORMS) {
+      for (const p of FOLLOWABLE_PLATFORMS) {
         if (buddy.socials[p.id]?.trim()) {
           next[`${buddy.id}:${p.id}`] = targetState;
         }

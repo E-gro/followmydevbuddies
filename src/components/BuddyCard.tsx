@@ -11,6 +11,7 @@ import {
 import { DevBuddy, FollowedMap, SocialPlatform } from '../types';
 import {
   PLATFORMS,
+  FOLLOWABLE_PLATFORMS,
   buildSocialUrl,
   formatDisplayHandle,
   extractCleanHandle,
@@ -69,7 +70,7 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
     return true;
   });
 
-  const allBuddyPlatforms = PLATFORMS.filter((p) => {
+  const allBuddyPlatforms = FOLLOWABLE_PLATFORMS.filter((p) => {
     const val = buddy.socials[p.id];
     return Boolean(val && val.trim());
   });
@@ -86,6 +87,10 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
     platform: SocialPlatform,
     rawValue: string
   ) => {
+    if (platform === 'website') {
+      return;
+    }
+
     if (platform === 'github' && githubToken.trim()) {
       e.preventDefault();
       const username = extractCleanHandle('github', rawValue);
@@ -232,7 +237,8 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {availablePlatforms.map((platform) => {
             const rawVal = buddy.socials[platform.id] || '';
-            const isFollowed = Boolean(followedMap[`${buddy.id}:${platform.id}`]);
+            const isFollowable = platform.isFollowable !== false;
+            const isFollowed = isFollowable && Boolean(followedMap[`${buddy.id}:${platform.id}`]);
             const url = buildSocialUrl(platform.id, rawVal, useMobileDeepLink);
             const displayHandle = formatDisplayHandle(platform.id, rawVal);
             const isGithub1Click = platform.id === 'github' && Boolean(githubToken.trim());
@@ -254,7 +260,9 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
                   onClick={(e) => handleSocialClick(e, platform.id, rawVal)}
                   className="flex flex-1 items-center justify-between gap-2 px-3 py-2 text-xs font-medium transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800/40 min-w-0"
                   title={
-                    isGithub1Click
+                    !isFollowable
+                      ? `Visitar site/portfólio verificado: ${url}`
+                      : isGithub1Click
                       ? `Dar 1-Click Follow direto via API do GitHub em ${displayHandle}`
                       : `Abrir link oficial verificado: ${url}`
                   }
@@ -296,27 +304,29 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
                   )}
                 </a>
 
-                {/* Manual Check / Uncheck Button */}
-                <button
-                  type="button"
-                  onClick={() => onToggleFollow(buddy.id, platform.id)}
-                  className={`flex h-full items-center justify-center border-l px-2.5 py-2 transition-colors cursor-pointer ${
-                    isFollowed
-                      ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/30'
-                      : 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/60 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                  title={
-                    isFollowed
-                      ? 'Já seguindo (clique para desmarcar)'
-                      : 'Marcar como já seguido'
-                  }
-                >
-                  <Check
-                    className={`h-3.5 w-3.5 ${
-                      isFollowed ? 'stroke-[2.8]' : 'stroke-[2]'
+                {/* Manual Check / Uncheck Button (only for followable social networks, not websites) */}
+                {isFollowable && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleFollow(buddy.id, platform.id)}
+                    className={`flex h-full items-center justify-center border-l px-2.5 py-2 transition-colors cursor-pointer ${
+                      isFollowed
+                        ? 'border-emerald-500/30 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/30'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/60 text-slate-400 dark:text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
-                  />
-                </button>
+                    title={
+                      isFollowed
+                        ? 'Já seguindo (clique para desmarcar)'
+                        : 'Marcar como já seguido'
+                    }
+                  >
+                    <Check
+                      className={`h-3.5 w-3.5 ${
+                        isFollowed ? 'stroke-[2.8]' : 'stroke-[2]'
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
             );
           })}

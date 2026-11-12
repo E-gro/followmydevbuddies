@@ -1,6 +1,6 @@
 # Follow My Dev Buddies • Comunidade Amigos do Mag
 
-Portal oficial de networking e conexões rápidas criado para a comunidade **Amigos do Mag**, permitindo que todos os membros cadastrem suas redes sociais em um único lugar sem transformar o grupo de WhatsApp em um scroll infinito de links.
+Portal de networking e conexões rápidas criado para a comunidade **Amigos do Mag**, permitindo que todos os membros cadastrem suas redes sociais em um único lugar sem transformar o grupo de WhatsApp em um scroll infinito de links.
 
 ## ✨ Funcionalidades
 

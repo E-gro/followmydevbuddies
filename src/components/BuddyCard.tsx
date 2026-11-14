@@ -224,7 +224,7 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
         <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
           <span
             className="inline-flex items-center gap-1"
-            title="Todos os links passam por validação de domínio oficial anti-phishing"
+            title="Links de redes usam domínios oficiais; sites pessoais são externos"
           >
             <ShieldCheck className="h-3 w-3 text-emerald-500" />
             Redes ({availablePlatforms.length})
@@ -261,7 +261,7 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
                   className="flex flex-1 items-center justify-between gap-2 px-3 py-2 text-xs font-medium transition-colors hover:bg-slate-200/50 dark:hover:bg-slate-800/40 min-w-0"
                   title={
                     !isFollowable
-                      ? `Visitar site/portfólio verificado: ${url}`
+                      ? `Visitar site/portfólio externo: ${url}`
                       : isGithub1Click
                       ? `Dar 1-Click Follow direto via API do GitHub em ${displayHandle}`
                       : `Abrir link oficial verificado: ${url}`

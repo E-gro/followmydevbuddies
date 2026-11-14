@@ -6,6 +6,10 @@ export type SocialPlatform =
   | 'twitter'
   | 'youtube'
   | 'bluesky'
+  | 'threads'
+  | 'twitch'
+  | 'gitlab'
+  | 'devto'
   | 'website';
 
 export interface SocialLinks {
@@ -16,6 +20,10 @@ export interface SocialLinks {
   twitter?: string;
   youtube?: string;
   bluesky?: string;
+  threads?: string;
+  twitch?: string;
+  gitlab?: string;
+  devto?: string;
   website?: string;
 }
 
@@ -33,8 +41,12 @@ export interface DevBuddy {
   communityFollowsDone: number;
   joinedAt: string;
   ownerGithubId?: number;
-  tools?: { ides: string[]; agents: string[] };
+  tools?: CommunityToolData;
 }
+
+export type ToolCategory = 'ides' | 'agents' | 'automation' | 'design' | 'cloud';
+export type ToolReview = { status: 'good' | 'mixed' | 'bad' | ''; comment: string };
+export type CommunityToolData = Partial<Record<ToolCategory, string[]>> & { reviews?: Record<string, ToolReview> };
 
 export type FollowStatusFilter = 'all' | 'pending' | 'completed';
 

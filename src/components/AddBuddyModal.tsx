@@ -94,6 +94,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
       setAvatarUrl(editingBuddy.avatarUrl);
       setTagsInput(editingBuddy.tags.join(', '));
       setSocials({
+        ...editingBuddy.socials,
         instagram: editingBuddy.socials.instagram || '',
         tiktok: editingBuddy.socials.tiktok || '',
         github: editingBuddy.socials.github || '',
@@ -658,7 +659,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
               </h3>
               <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Proteção ativa contra links maliciosos: domínios oficiais forçados
+                Redes usam domínios oficiais. Sites pessoais são links externos.
               </span>
             </div>
 

@@ -42,6 +42,12 @@ const STORAGE_KEYS = {
 };
 
 export function App() {
+  const [toolsPage, setToolsPage] = useState(() => window.location.hash === '#ferramentas');
+  useEffect(() => {
+    const update = () => setToolsPage(window.location.hash === '#ferramentas');
+    window.addEventListener('hashchange', update);
+    return () => window.removeEventListener('hashchange', update);
+  }, []);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
     return saved === 'light' ? 'light' : 'dark';
@@ -160,6 +166,10 @@ export function App() {
                 accessToken: token,
               };
               handleSuccessGithubAuth(user);
+              if (sessionStorage.getItem('fmdb_return_to_tools') === 'true') {
+                sessionStorage.removeItem('fmdb_return_to_tools');
+                window.location.hash = 'ferramentas';
+              }
             }
           })
           .catch(() => {});
@@ -507,11 +517,15 @@ export function App() {
           onOpenGithubModal={() => setIsGithubModalOpen(true)}
         />
 
-        <CommunityTools
+        <nav aria-label="Navegação do portal" className="mx-auto flex max-w-7xl gap-2 px-4 sm:px-6 lg:px-8 pt-6">
+          <a href="#inicio" aria-current={!toolsPage ? 'page' : undefined} className={`rounded-xl px-4 py-2 text-sm font-bold ${!toolsPage ? 'bg-emerald-500 text-slate-950' : 'border border-slate-400/40'}`}>Comunidade e ranking</a>
+          <a href="#ferramentas" aria-current={toolsPage ? 'page' : undefined} className={`rounded-xl px-4 py-2 text-sm font-bold ${toolsPage ? 'bg-emerald-500 text-slate-950' : 'border border-slate-400/40'}`}>Índice de ferramentas</a>
+        </nav>
+        {toolsPage ? <CommunityTools
           buddies={buddies}
           ownBuddy={authUser ? (buddies.find(b => b.ownerGithubId === authUser.githubId && b.tools) || buddies.find(b => b.ownerGithubId === authUser.githubId)) : undefined}
           authenticated={Boolean(authUser)}
-          onLogin={() => setIsAuthModalOpen(true)}
+          onLogin={() => { sessionStorage.setItem('fmdb_return_to_tools', 'true'); setIsAuthModalOpen(true); }}
           onSave={async (tools) => {
             if (!authUser) return false;
             const buddy = buddies.find(b => b.ownerGithubId === authUser.githubId && b.tools) || buddies.find(b => b.ownerGithubId === authUser.githubId);
@@ -523,7 +537,7 @@ export function App() {
             setBuddies(result.buddies);
             return true;
           }}
-        />
+        /> : <>
 
         {/* Controls & Filters */}
         <ControlBar
@@ -614,6 +628,7 @@ export function App() {
             </div>
           )}
         </main>
+        </>}
       </div>
 
       {/* Footer honoring Amigos do Mag */}
@@ -661,7 +676,7 @@ export function App() {
       )}
       <GitHubAuthModal
         isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
+        onClose={() => { setIsAuthModalOpen(false); sessionStorage.removeItem('fmdb_return_to_tools'); }}
         onSuccessAuth={handleSuccessGithubAuth}
       />
 

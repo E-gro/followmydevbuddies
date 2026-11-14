@@ -83,6 +83,12 @@ export const PLATFORMS: PlatformMeta[] = [
     borderActiveClass: 'border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     isFollowable: false,
   },
+  ...([
+    ['threads', 'Threads', '@usuario ou threads.com/@usuario'],
+    ['twitch', 'Twitch', 'usuario ou twitch.tv/usuario'],
+    ['gitlab', 'GitLab', 'usuario ou gitlab.com/usuario'],
+    ['devto', 'DEV Community', 'usuario ou dev.to/usuario'],
+  ] as const).map(([id, label, placeholder]) => ({ id, label, shortLabel: label, placeholder, colorClass: 'text-violet-600 dark:text-violet-400', borderActiveClass: 'border-violet-500/50 bg-violet-500/10 text-violet-700 dark:text-violet-300' })),
 ];
 
 export const FOLLOWABLE_PLATFORMS: PlatformMeta[] = PLATFORMS.filter(
@@ -144,6 +150,10 @@ export function validateSafeWebsiteUrl(rawInput: string): {
     }
 
     const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+
+    if (parsed.username || parsed.password || parsed.port || host.startsWith('[') || host.endsWith('.localhost') || host.endsWith('.local')) {
+      return { valid: false, safeUrl: '', hostname: '', error: 'Informe um endereço público sem credenciais ou porta.' };
+    }
 
     // Must contain a valid TLD dot and not be an IP address
     if (!host.includes('.') || /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host === 'localhost') {
@@ -261,6 +271,10 @@ export function buildSocialUrl(
       const bskyHandle = handle.includes('.') ? handle : `${handle}.bsky.social`;
       return `https://bsky.app/profile/${encodeURIComponent(bskyHandle)}`;
     }
+    case 'threads': return `https://www.threads.com/@${encodeURIComponent(handle)}`;
+    case 'twitch': return `https://www.twitch.tv/${encodeURIComponent(handle)}`;
+    case 'gitlab': return `https://gitlab.com/${encodeURIComponent(handle)}`;
+    case 'devto': return `https://dev.to/${encodeURIComponent(handle)}`;
   }
 }
 
@@ -282,6 +296,10 @@ export function formatDisplayHandle(platform: SocialPlatform, rawValue: string):
     case 'linkedin':
       return `in/${handle}`;
     case 'bluesky':
+    case 'threads':
+    case 'twitch':
+    case 'gitlab':
+    case 'devto':
       return `@${handle}`;
   }
 }

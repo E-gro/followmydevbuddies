@@ -37,7 +37,7 @@ interface AddBuddyModalProps {
   authUser: GitHubAuthUser | null;
   additionalCard?: boolean;
   onClose: () => void;
-  onSaveBuddy: (buddy: DevBuddy, isEdit: boolean) => void;
+  onSaveBuddy: (buddy: DevBuddy, isEdit: boolean) => Promise<boolean>;
 }
 
 export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
@@ -81,6 +81,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
   const [seedOffset, setSeedOffset] = useState(0);
 
   const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -216,7 +217,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
     setSocials((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
@@ -289,8 +290,10 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
       tools: editingBuddy?.tools,
     };
 
-    onSaveBuddy(savedBuddy, Boolean(editingBuddy));
-    onClose();
+    setSaving(true);
+    const ok = await onSaveBuddy(savedBuddy, Boolean(editingBuddy));
+    setSaving(false);
+    if (ok) onClose(); else setFormError('Não foi possível salvar. Seus dados continuam aqui para tentar novamente.');
   };
 
   const gallerySeeds = PRESET_SEEDS.map((s, idx) => `${s}-${seedOffset + idx}`);
@@ -743,9 +746,10 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
             </button>
             <button
               type="submit"
+              disabled={saving}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 cursor-pointer"
             >
-              {editingBuddy ? (
+              {saving ? <span>Salvando...</span> : editingBuddy ? (
                 <>
                   <UserPen className="h-4 w-4" />
                   <span>Salvar Alterações</span>

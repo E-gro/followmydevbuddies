@@ -11,6 +11,7 @@ export interface GitHubAuthUser {
   blog: string;
   twitterUsername: string;
   accessToken: string;
+  canFollow?: boolean;
 }
 
 export function GitHubAuthModal({ isOpen, onClose }: {

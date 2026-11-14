@@ -34,6 +34,7 @@ interface BuddyCardProps {
   onMarkAllForBuddy: (buddy: DevBuddy, targetState: boolean) => void;
   onGithubApiFollow: (buddyId: string, githubUsername: string) => Promise<boolean>;
   onEditBuddy: (buddy: DevBuddy) => void;
+  onReportBuddy: (buddy: DevBuddy) => void;
 }
 
 export const BuddyCard: React.FC<BuddyCardProps> = ({
@@ -50,6 +51,7 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
   onMarkAllForBuddy,
   onGithubApiFollow,
   onEditBuddy,
+  onReportBuddy,
 }) => {
   const [loadingGithub, setLoadingGithub] = useState(false);
 
@@ -219,6 +221,7 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
         )}
       </div>
 
+      {!isOwnCard && <button type="button" onClick={() => onReportBuddy(buddy)} className="mt-3 text-left text-xs text-slate-500 underline hover:text-rose-500">Denunciar cartão</button>}
       {/* Social Action Buttons */}
       <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-slate-800/70 space-y-2">
         <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">

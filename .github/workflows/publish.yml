@@ -1,11 +1,25 @@
-name: Publish portal
+name: Validate and publish portal
 on:
   push:
     branches: [main]
   workflow_dispatch:
-permissions: {}
+permissions:
+  contents: read
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:server
+      - run: npm run build
   trigger-cloudflare-build:
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip deploy]')
     runs-on: ubuntu-latest
     steps:
       - name: Start Cloudflare build

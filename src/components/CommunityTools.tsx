@@ -12,9 +12,10 @@ const categories: { id: ToolCategory; label: string; options: string[] }[] = [
 const reviewKey = (category: ToolCategory, name: string) => `${category}:${name.trim().toLocaleLowerCase('pt-BR')}`;
 const statuses = { good: 'Funciona bem', mixed: 'Mais ou menos', bad: 'Não funciona bem' } as const;
 
-export function CommunityTools({ buddies, ownBuddy, authenticated, onLogin, onSave }: {
+export function CommunityTools({ buddies, ownBuddy, authenticated, onLogin, onSave, onReport }: {
   buddies: DevBuddy[]; ownBuddy?: DevBuddy; authenticated: boolean;
   onLogin: () => void; onSave: (tools: CommunityToolData) => Promise<boolean>;
+  onReport: (buddy: DevBuddy, toolName: string) => void;
 }) {
   const [selected, setSelected] = useState<CommunityToolData>({});
   const [category, setCategory] = useState<ToolCategory>('ides');
@@ -69,7 +70,7 @@ export function CommunityTools({ buddies, ownBuddy, authenticated, onLogin, onSa
         return <article key={name} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-4">
           <div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{name}</h3><p className="mt-1 text-xs text-slate-500">{count} {count === 1 ? 'pessoa usa' : 'pessoas usam'} · {reviews.filter(r => r.review.status === 'good').length} dizem que funciona bem</p></div>{authenticated && ownBuddy && <button type="button" aria-pressed={checked} onClick={() => toggle(name)} className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${checked ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 dark:border-slate-700'}`}>{checked ? 'Uso ✓' : 'Eu uso'}</button>}</div>
           {checked && <div className="mt-4 space-y-2"><label className="block text-xs font-semibold">Como funciona para você?<select value={review?.status || ''} onChange={e => setReview(name, { status: e.target.value as ToolReview['status'] })} className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-sm"><option value="">Ainda não avaliei</option><option value="good">Funciona bem</option><option value="mixed">Mais ou menos</option><option value="bad">Não funciona bem</option></select></label><label className="block text-xs font-semibold">Comentário público (opcional)<textarea value={review?.comment || ''} onChange={e => setReview(name, { comment: e.target.value })} maxLength={400} rows={2} className="mt-1 block w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-sm" placeholder="Conte sua experiência" /></label></div>}
-          {reviews.filter(r => r.review.status || r.review.comment).length > 0 && <div className="mt-3 space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">{reviews.filter(r => r.review.status || r.review.comment).map(({ buddy, review: r }) => <div key={buddy.ownerGithubId ?? buddy.id} className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">{buddy.name}</span>{r.status && <> · {statuses[r.status]}</>}{r.comment && <p className="mt-1 flex gap-1.5 whitespace-pre-wrap"><MessageSquare className="h-3.5 w-3.5 shrink-0" />{r.comment}</p>}</div>)}</div>}
+          {reviews.filter(r => r.review.status || r.review.comment).length > 0 && <div className="mt-3 space-y-2 border-t border-slate-200 dark:border-slate-800 pt-3">{reviews.filter(r => r.review.status || r.review.comment).map(({ buddy, review: r }) => <div key={buddy.ownerGithubId ?? buddy.id} className="text-xs text-slate-600 dark:text-slate-300"><span className="font-semibold">{buddy.name}</span>{r.status && <> · {statuses[r.status]}</>}{r.comment && <><p className="mt-1 flex gap-1.5 whitespace-pre-wrap"><MessageSquare className="h-3.5 w-3.5 shrink-0" />{r.comment}</p><button type="button" onClick={() => onReport(buddy,name)} className="mt-1 underline text-slate-500">Denunciar comentário</button></>}</div>)}</div>}
         </article>;
       })}</div>
       {tools.length === 0 && <p className="py-5 text-sm text-slate-500">Nenhuma ferramenta encontrada nesta categoria.</p>}

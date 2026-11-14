@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   DevBuddy,
   FollowedMap,
@@ -11,7 +11,16 @@ import { PLATFORMS, FOLLOWABLE_PLATFORMS, extractCleanHandle } from './utils/soc
 import {
   fetchCloudBuddies,
   upsertCloudBuddy,
-  syncCloudFollowScore,
+  getCloudProgress,
+  updateCloudProgress,
+  deleteCloudBuddy,
+  deleteCloudAccount,
+  getCloudSession,
+  endCloudSession,
+  followCloudGithub,
+  moderationRequest,
+  ModerationItem,
+  HiddenItem,
 } from './utils/cloudSync';
 import { Header } from './components/Header';
 import { ControlBar } from './components/ControlBar';
@@ -53,14 +62,7 @@ export function App() {
     return saved === 'light' ? 'light' : 'dark';
   });
 
-  const [authUser, setAuthUser] = useState<GitHubAuthUser | null>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [authUser, setAuthUser] = useState<GitHubAuthUser | null>(null);
 
   const [buddies, setBuddies] = useState<DevBuddy[]>(() => {
     try {
@@ -89,6 +91,8 @@ export function App() {
       return {};
     }
   });
+  const [progressReady, setProgressReady] = useState(false);
+  const progressBusy = useRef(false);
 
   const [autoMarkOnClick, setAutoMarkOnClick] = useState<boolean>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AUTO_MARK);
@@ -100,9 +104,7 @@ export function App() {
     return saved === 'true';
   });
 
-  const [githubToken, setGithubToken] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEYS.GH_TOKEN) || '';
-  });
+  const [githubToken, setGithubToken] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform | 'all'>('all');
@@ -111,6 +113,9 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCardsMenuOpen, setIsCardsMenuOpen] = useState(false);
+  const [isModerationOpen, setIsModerationOpen] = useState(false);
+  const [reports, setReports] = useState<ModerationItem[]>([]);
+  const [hiddenCards, setHiddenCards] = useState<HiddenItem[]>([]);
   const [editingBuddy, setEditingBuddy] = useState<DevBuddy | null>(null);
   const [isSpeedRunOpen, setIsSpeedRunOpen] = useState(false);
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
@@ -121,6 +126,20 @@ export function App() {
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 3500);
+  };
+  const reportBuddy = async (buddy: DevBuddy, context = '') => {
+    if (!authUser) { setIsAuthModalOpen(true); showToast('Entre com GitHub para denunciar.'); return; }
+    const reason = window.prompt(`Descreva o problema${context ? ` em ${context}` : ''} (mínimo de 10 caracteres):`);
+    if (reason === null) return;
+    const detail = context ? `[Comentário em ${context}] ${reason.trim()}` : reason.trim();
+    if (reason.trim().length < 10) { showToast('Descreva o problema em pelo menos 10 caracteres.'); return; }
+    const result = await moderationRequest({action:'report',buddyId:buddy.id,reason:detail});
+    showToast(result.ok ? 'Denúncia enviada à moderação.' : result.error || 'Não foi possível enviar a denúncia.');
+  };
+  const loadModeration = async () => {
+    const result = await moderationRequest({action:'listReports'});
+    if (!result.ok) { showToast(result.error || 'Não foi possível carregar as denúncias.'); return; }
+    setReports(result.reports || []); setHiddenCards(result.hidden || []); setIsModerationOpen(true);
   };
 
   // Initial Cloud Database Fetch
@@ -137,44 +156,28 @@ export function App() {
     };
   }, []);
 
-  // Check if returning from GitHub OAuth Callback (#gh_token=...)
+  // Session credentials stay in an HttpOnly cookie; remove credentials from older versions.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const hash = window.location.hash;
-    if (hash.startsWith('#gh_token=')) {
-      const token = decodeURIComponent(hash.replace('#gh_token=', '').trim());
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      if (token) {
-        fetch('https://api.github.com/user', {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            Authorization: `Bearer ${token}`,
-          },
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            if (data && data.id && data.login) {
-              const user: GitHubAuthUser = {
-                githubId: data.id,
-                login: data.login,
-                name: data.name || data.login,
-                avatarUrl: data.avatar_url,
-                bio: data.bio || '',
-                company: data.company ? data.company.replace(/^@/, '') : '',
-                blog: data.blog || '',
-                twitterUsername: data.twitter_username || '',
-                accessToken: token,
-              };
-              handleSuccessGithubAuth(user);
-              if (sessionStorage.getItem('fmdb_return_to_tools') === 'true') {
-                sessionStorage.removeItem('fmdb_return_to_tools');
-                window.location.hash = 'ferramentas';
-              }
-            }
-          })
-          .catch(() => {});
+    try {
+      const legacy = JSON.parse(localStorage.getItem(STORAGE_KEYS.AUTH_USER) || 'null');
+      const followed = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOLLOWED) || '{}');
+      if (Number.isSafeInteger(legacy?.githubId) && Object.values(followed).some(Boolean)) sessionStorage.setItem('fmdb_legacy_progress', JSON.stringify({owner:legacy.githubId, followed}));
+    } catch { /* Ignore invalid legacy data. */ }
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    localStorage.removeItem(STORAGE_KEYS.GH_TOKEN);
+    if (window.location.hash.startsWith('#gh_token=')) window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    let active = true;
+    const returned = new URLSearchParams(window.location.search).get('login') === 'ok';
+    if (returned) window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    getCloudSession().then(user => {
+      if (!active || !user) return;
+      setAuthUser(user); setGithubToken('session');
+      if (returned) {
+        showToast(`Conectado como @${user.login}.`);
+        if (sessionStorage.getItem('fmdb_return_to_tools') === 'true') { sessionStorage.removeItem('fmdb_return_to_tools'); window.location.hash = 'ferramentas'; }
       }
-    }
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -188,14 +191,6 @@ export function App() {
     }
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (authUser) {
-      localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(authUser));
-    } else {
-      localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
-    }
-  }, [authUser]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.BUDDIES, JSON.stringify(buddies));
@@ -216,10 +211,6 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.MOBILE_DEEPLINK, String(useMobileDeepLink));
   }, [useMobileDeepLink]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.GH_TOKEN, githubToken);
-  }, [githubToken]);
 
   // Compute totals and per-platform link counts (excluding 'website' from followable score totals)
   const { totalLinks, followedCount, platformCounts } = useMemo(() => {
@@ -245,25 +236,32 @@ export function App() {
     return { totalLinks: total, followedCount: followed, platformCounts: counts };
   }, [buddies, followedMap]);
 
-  // Sync user's own follow score to cloud DB whenever followedCount changes
+  // Load account-specific progress before accepting authenticated changes.
   useEffect(() => {
-    if (!authUser) return;
-    const activeToken = authUser.accessToken || githubToken;
-    if (!activeToken) return;
-
-    const myCard = buddies.find(
-      (b) =>
-        b.ownerGithubId === authUser.githubId
-    );
-    if (myCard && myCard.communityFollowsDone !== followedCount) {
-      setBuddies((prev) =>
-        prev.map((b) =>
-          b.id === myCard.id ? { ...b, communityFollowsDone: followedCount } : b
-        )
-      );
-      syncCloudFollowScore(myCard.id, followedCount, activeToken);
-    }
-  }, [followedCount, authUser, githubToken, buddies]);
+    if (!authUser) { setProgressReady(false); return; }
+    let active = true;
+    setProgressReady(false);
+    getCloudProgress(authUser.accessToken || githubToken).then(async progress => {
+      if (!active) return;
+      if (progress === null) { showToast('Não foi possível carregar seu progresso. Entre novamente para tentar.'); return; }
+      try {
+        const legacy = JSON.parse(sessionStorage.getItem('fmdb_legacy_progress') || 'null');
+        if (legacy?.owner === authUser.githubId && legacy.followed && typeof legacy.followed === 'object') {
+          const changes = Object.entries(legacy.followed).filter(([,value]) => value === true).flatMap(([key]) => { const i=key.lastIndexOf(':'); const platform=key.slice(i+1) as SocialPlatform; return i>0 && FOLLOWABLE_PLATFORMS.some(p => p.id===platform) ? [{buddyId:key.slice(0,i),platform,followed:true}] : []; });
+          if (changes.length && window.confirm('Encontramos progresso antigo neste navegador. Deseja importá-lo para sua conta?')) {
+            let ok = true;
+            for (let i=0; i<changes.length && ok; i+=50) ok = await updateCloudProgress(authUser.accessToken || githubToken, changes.slice(i,i+50));
+            if (ok) { progress = await getCloudProgress(authUser.accessToken || githubToken) || progress; sessionStorage.removeItem('fmdb_legacy_progress'); }
+            else showToast('Não foi possível importar todo o progresso. Tente novamente.');
+          } else sessionStorage.removeItem('fmdb_legacy_progress');
+        }
+      } catch { /* Leave legacy data untouched if it cannot be read. */ }
+      if (!active) return;
+      setFollowedMap(progress);
+      setProgressReady(true);
+    });
+    return () => { active = false; };
+  }, [authUser?.githubId, authUser?.accessToken, githubToken]);
 
   // Filter buddies
   const filteredBuddies = useMemo(() => {
@@ -323,29 +321,38 @@ export function App() {
     });
   }, [buddies, selectedPlatform, statusFilter, searchQuery, followedMap]);
 
-  const handleToggleFollow = (
+  const applyProgressChanges = async (changes: { buddyId: string; platform: SocialPlatform; followed: boolean }[]) => {
+    if (authUser) {
+      if (!progressReady || progressBusy.current) { showToast('Aguarde a sincronização do progresso.'); return false; }
+      progressBusy.current = true;
+      const ok = await updateCloudProgress(authUser.accessToken || githubToken, changes);
+      progressBusy.current = false;
+      if (!ok) { showToast('Não foi possível salvar seu progresso. Tente novamente.'); return false; }
+    }
+    setFollowedMap(prev => {
+      const next = { ...prev };
+      for (const c of changes) { const key = `${c.buddyId}:${c.platform}`; if (c.followed) next[key] = true; else delete next[key]; }
+      return next;
+    });
+    if (authUser) {
+      const refreshed = await fetchCloudBuddies();
+      if (refreshed) setBuddies(refreshed);
+    }
+    return true;
+  };
+  const handleToggleFollow = async (
     buddyId: string,
     platform: SocialPlatform,
     forceState?: boolean
   ) => {
-    if (platform === 'website') return;
+    if (platform === 'website') return false;
     const key = `${buddyId}:${platform}`;
-    setFollowedMap((prev) => {
-      const nextVal = forceState !== undefined ? forceState : !prev[key];
-      return { ...prev, [key]: nextVal };
-    });
+    return applyProgressChanges([{ buddyId, platform, followed: forceState !== undefined ? forceState : !followedMap[key] }]);
   };
 
-  const handleMarkAllForBuddy = (buddy: DevBuddy, targetState: boolean) => {
-    setFollowedMap((prev) => {
-      const next = { ...prev };
-      for (const p of FOLLOWABLE_PLATFORMS) {
-        if (buddy.socials[p.id]?.trim()) {
-          next[`${buddy.id}:${p.id}`] = targetState;
-        }
-      }
-      return next;
-    });
+  const handleMarkAllForBuddy = async (buddy: DevBuddy, targetState: boolean) => {
+    const changes = FOLLOWABLE_PLATFORMS.filter(p => buddy.socials[p.id]?.trim()).map(p => ({buddyId: buddy.id, platform: p.id, followed: targetState}));
+    if (!changes.length || !(await applyProgressChanges(changes))) return;
     showToast(
       targetState
         ? `Todas as redes de ${buddy.name} marcadas como seguidas!`
@@ -376,17 +383,21 @@ export function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const ok = await endCloudSession();
+    if (!ok) { showToast('Não foi possível encerrar a sessão. Tente novamente.'); return; }
     setAuthUser(null);
     setOwnBuddyId('');
     setGithubToken('');
+    setFollowedMap({});
+    setProgressReady(false);
     showToast('Sessão do GitHub encerrada.');
   };
 
   const handleSaveBuddy = async (savedBuddy: DevBuddy, isEdit: boolean) => {
     if (!authUser) {
       setIsAuthModalOpen(true);
-      return;
+      return false;
     }
 
     const activeToken = authUser.accessToken || githubToken;
@@ -394,8 +405,6 @@ export function App() {
       ...savedBuddy,
       communityFollowsDone: followedCount,
     };
-
-    setEditingBuddy(null);
 
     const res = await upsertCloudBuddy(buddyWithScore, activeToken);
     if (res.ok && res.buddies) {
@@ -406,8 +415,10 @@ export function App() {
           ? `Card de @${authUser.login} atualizado no banco!`
           : `Card de @${authUser.login} publicado na Amigos do Mag!`
       );
+      return true;
     } else {
       showToast(res.error || 'Não foi possível publicar o cartão.');
+      return false;
     }
   };
 
@@ -437,21 +448,13 @@ export function App() {
   ): Promise<boolean> => {
     const activeToken = authUser?.accessToken || githubToken;
     if (!activeToken.trim()) return false;
+    if (!authUser?.canFollow) {
+      if (window.confirm('Para seguir perfis pelo portal, o GitHub precisa da sua autorização para seguir usuários. Deseja concedê-la?')) window.location.href = '/api/fmdb/auth?follow=1';
+      return false;
+    }
     try {
-      const res = await fetch(
-        `https://api.github.com/user/following/${encodeURIComponent(githubUsername)}`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${activeToken.trim()}`,
-            Accept: 'application/vnd.github+json',
-            'Content-Length': '0',
-          },
-        }
-      );
-
-      if (res.status === 204 || res.ok) {
-        handleToggleFollow(buddyId, 'github', true);
+      if (await followCloudGithub(buddyId)) {
+        await handleToggleFollow(buddyId, 'github', true);
         showToast(`Você seguiu @${githubUsername} no GitHub com 1-Click!`);
         return true;
       }
@@ -465,6 +468,10 @@ export function App() {
     followed: number;
     failed: number;
   }> => {
+    if (!authUser?.canFollow) {
+      if (window.confirm('Para seguir perfis pelo portal, o GitHub precisa da sua autorização para seguir usuários. Deseja concedê-la?')) window.location.href = '/api/fmdb/auth?follow=1';
+      return { followed: 0, failed: 0 };
+    }
     let followed = 0;
     let failed = 0;
 
@@ -526,6 +533,7 @@ export function App() {
           buddies={buddies}
           ownBuddy={authUser ? (buddies.find(b => b.ownerGithubId === authUser.githubId && b.tools) || buddies.find(b => b.ownerGithubId === authUser.githubId)) : undefined}
           authenticated={Boolean(authUser)}
+          onReport={(buddy, name) => { void reportBuddy(buddy, name); }}
           onLogin={() => { sessionStorage.setItem('fmdb_return_to_tools', 'true'); setIsAuthModalOpen(true); }}
           onSave={async (tools) => {
             if (!authUser) return false;
@@ -582,6 +590,7 @@ export function App() {
                     onMarkAllForBuddy={handleMarkAllForBuddy}
                     onGithubApiFollow={handleGithubApiFollow}
                     onEditBuddy={handleOpenEditBuddy}
+                    onReportBuddy={(buddy) => { void reportBuddy(buddy); }}
                   />
                 );
               })}
@@ -670,11 +679,14 @@ export function App() {
           <div className="max-h-[85dvh] overflow-y-auto w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
             <div className="flex justify-between items-center"><h2 id="cards-title" className="text-lg font-bold">Meus cartões</h2><button onClick={() => setIsCardsMenuOpen(false)} aria-label="Fechar">✕</button></div>
             <p className="text-sm text-slate-500">Crie cartões separados para você, seus produtos e empresas.</p>
-            {buddies.filter(b => b.ownerGithubId === authUser.githubId).map(b => <button key={b.id} onClick={() => { setIsCardsMenuOpen(false); handleOpenEditBuddy(b); }} className="block w-full rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-left text-sm">Editar {b.name}</button>)}
+            {buddies.filter(b => b.ownerGithubId === authUser.githubId).map(b => <div key={b.id} className="flex gap-2"><button onClick={() => { setIsCardsMenuOpen(false); handleOpenEditBuddy(b); }} className="min-w-0 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-left text-sm">Editar {b.name}</button><button onClick={async () => { if (!window.confirm(`Excluir o cartão de ${b.name}? As avaliações de ferramentas salvas nele também serão removidas.`)) return; const result = await deleteCloudBuddy(b.id, authUser.accessToken || githubToken); if (result.ok && result.buddies) { setBuddies(result.buddies); showToast('Cartão excluído.'); } else showToast(result.error || 'Não foi possível excluir o cartão.'); }} aria-label={`Excluir cartão de ${b.name}`} className="rounded-xl border border-rose-500/40 px-3 text-sm text-rose-600 dark:text-rose-400">Excluir</button></div>)}
             <button onClick={() => { setIsCardsMenuOpen(false); setEditingBuddy(null); setIsAddModalOpen(true); }} className="w-full rounded-xl bg-emerald-500 px-4 py-3 font-bold text-slate-950">Criar novo cartão</button>
+            {authUser.githubId === 94655326 && <button onClick={() => { setIsCardsMenuOpen(false); void loadModeration(); }} className="w-full rounded-xl border border-amber-500/40 px-4 py-3 text-sm font-semibold">Moderação</button>}
+            <button onClick={async () => { if (!window.confirm('Excluir sua conta do portal, seus cartões, avaliações e progresso? Esta ação não pode ser desfeita. Cópias automáticas podem manter dados por até 7 dias, e a recuperação do banco por até 30 dias; cópias manuais são geridas pelo administrador. Sua conta do GitHub não será excluída.')) return; const result = await deleteCloudAccount(authUser.accessToken || githubToken); if (!result.ok || !result.buddies) { showToast(result.error || 'Não foi possível excluir sua conta.'); return; } setBuddies(result.buddies); setIsCardsMenuOpen(false); await endCloudSession(); setAuthUser(null); setGithubToken(''); setOwnBuddyId(''); setFollowedMap({}); setProgressReady(false); if (!result.authorizationRevoked) window.alert('Sua conta no portal foi excluída, mas não foi possível revogar a autorização no GitHub. Acesse github.com/settings/applications para remover o acesso do portal.'); else showToast('Conta do portal excluída e autorização do GitHub revogada.'); }} className="w-full rounded-xl border border-rose-500/40 px-4 py-3 text-sm font-semibold text-rose-600 dark:text-rose-400">Excluir minha conta do portal</button>
           </div>
         </div>
       )}
+      {isModerationOpen && <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-3" role="dialog" aria-modal="true" aria-labelledby="moderation-title"><div className="max-h-[85dvh] overflow-y-auto w-full max-w-2xl rounded-3xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-5 space-y-4"><div className="flex justify-between"><h2 id="moderation-title" className="font-bold text-lg">Moderação</h2><button onClick={() => setIsModerationOpen(false)} aria-label="Fechar moderação">✕</button></div><p className="text-sm text-slate-500">Denúncias são privadas. Ocultar remove o cartão e seus comentários do diretório até a restauração.</p><button onClick={async () => { const r=await moderationRequest({action:"backupNow"}); showToast(r.ok ? "Cópia de segurança criada (retenção de 7 dias)." : r.error || "Não foi possível criar a cópia."); }} className="rounded-lg border border-emerald-500/40 px-3 py-2 text-sm">Criar cópia de segurança agora</button>{reports.length === 0 && <p className="text-sm">Nenhuma denúncia pendente.</p>}{reports.map(report => { let name = 'Cartão'; let bio = ''; let comments = ''; try { const card = JSON.parse(report.payload) as DevBuddy; name = card.name; bio = card.bio; comments = Object.entries(card.tools?.reviews || {}).filter(([, review]) => review.comment).map(([tool, review]) => `${tool}: ${review.comment}`).join('\n'); } catch {} return <div key={report.id} className="rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-sm space-y-2"><strong>{name}</strong><p className="whitespace-pre-wrap">{report.reason}</p><p className="text-xs text-slate-500 whitespace-pre-wrap">{bio}</p>{comments && <p className="text-xs whitespace-pre-wrap">{comments}</p>}<div className="flex flex-wrap gap-2"><button onClick={async () => { const r=await moderationRequest({action:'resolveReport',reportId:report.id,decision:'dismiss'}); if (r.ok) await loadModeration(); else showToast(r.error || 'Falha ao atualizar.'); }} className="rounded-lg border px-3 py-2">Dispensar</button><button onClick={async () => { if (!window.confirm(`Ocultar o cartão de ${name} e seus comentários?`)) return; const r=await moderationRequest({action:'resolveReport',reportId:report.id,decision:'hide'}); if (r.ok) { const list=await fetchCloudBuddies(); if (list) setBuddies(list); await loadModeration(); } else showToast(r.error || 'Falha ao atualizar.'); }} className="rounded-lg border border-rose-500/50 px-3 py-2 text-rose-600">Ocultar cartão</button></div></div>; })}{hiddenCards.length > 0 && <h3 className="font-bold">Cartões ocultos</h3>}{hiddenCards.map(item => { let name='Cartão'; try { name=(JSON.parse(item.payload) as DevBuddy).name; } catch {} return <div key={item.card_id} className="flex items-center justify-between gap-2 text-sm"><span>{name}</span><button onClick={async () => { const r=await moderationRequest({action:'restoreCard',buddyId:item.card_id}); if (r.ok) { const list=await fetchCloudBuddies(); if (list) setBuddies(list); await loadModeration(); } else showToast(r.error || 'Falha ao restaurar.'); }} className="rounded-lg border px-3 py-2">Restaurar</button></div>; })}</div></div>}
       <GitHubAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => { setIsAuthModalOpen(false); sessionStorage.removeItem('fmdb_return_to_tools'); }}

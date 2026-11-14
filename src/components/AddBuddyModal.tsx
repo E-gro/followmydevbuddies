@@ -296,8 +296,8 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
   const gallerySeeds = PRESET_SEEDS.map((s, idx) => `${s}-${seedOffset + idx}`);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-md overflow-y-auto">
-      <div className="relative my-6 w-full max-w-3xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D111A] p-5 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto text-slate-900 dark:text-slate-100">
+    <div role="dialog" aria-modal="true" aria-label={editingBuddy ? 'Editar cartão' : 'Criar cartão'} className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-md">
+      <div className="relative w-full max-w-3xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D111A] p-5 sm:p-6 shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain text-slate-900 dark:text-slate-100">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
           <div className="flex items-center gap-2.5">

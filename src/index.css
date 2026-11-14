@@ -18,6 +18,16 @@
   }
 }
 
+@media (max-width: 639px) {
+  input, textarea, select { font-size: 16px !important; }
+  button { min-height: 44px; }
+  button:has(> svg:only-child) { min-width: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
 .bg-grid-pattern-dark {
   background-size: 32px 32px;
   background-image: 

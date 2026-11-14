@@ -501,6 +501,7 @@ export function App() {
       <div>
         {/* Header & Hero */}
         <Header
+          compact={toolsPage}
           totalBuddies={buddies.length}
           totalLinks={totalLinks}
           followedCount={followedCount}
@@ -517,9 +518,9 @@ export function App() {
           onOpenGithubModal={() => setIsGithubModalOpen(true)}
         />
 
-        <nav aria-label="Navegação do portal" className="mx-auto flex max-w-7xl gap-2 px-4 sm:px-6 lg:px-8 pt-6">
-          <a href="#inicio" aria-current={!toolsPage ? 'page' : undefined} className={`rounded-xl px-4 py-2 text-sm font-bold ${!toolsPage ? 'bg-emerald-500 text-slate-950' : 'border border-slate-400/40'}`}>Comunidade e ranking</a>
-          <a href="#ferramentas" aria-current={toolsPage ? 'page' : undefined} className={`rounded-xl px-4 py-2 text-sm font-bold ${toolsPage ? 'bg-emerald-500 text-slate-950' : 'border border-slate-400/40'}`}>Índice de ferramentas</a>
+        <nav aria-label="Navegação do portal" className="sticky top-0 z-30 mx-auto flex max-w-7xl gap-2 bg-white/95 dark:bg-[#090B10]/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3 sm:static sm:bg-transparent sm:pt-6 sm:pb-0">
+          <a href="#inicio" onClick={() => { if (toolsPage) window.scrollTo({ top: 0 }); }} aria-current={!toolsPage ? 'page' : undefined} className={`flex min-h-11 flex-1 sm:flex-none items-center justify-center rounded-xl px-2 sm:px-4 py-2 text-center text-xs sm:text-sm font-bold ${!toolsPage ? 'bg-emerald-500 text-slate-950' : 'border border-slate-400/40'}`}>Comunidade e ranking</a>
+          <a href="#ferramentas" onClick={() => { if (!toolsPage) window.scrollTo({ top: 0 }); }} aria-current={toolsPage ? 'page' : undefined} className={`flex min-h-11 flex-1 sm:flex-none items-center justify-center rounded-xl px-2 sm:px-4 py-2 text-center text-xs sm:text-sm font-bold ${toolsPage ? 'bg-emerald-500 text-slate-950' : 'border border-slate-400/40'}`}>Índice de ferramentas</a>
         </nav>
         {toolsPage ? <CommunityTools
           buddies={buddies}
@@ -665,8 +666,8 @@ export function App() {
 
       {/* Modals */}
       {isCardsMenuOpen && authUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="cards-title">
-          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="cards-title">
+          <div className="max-h-[85dvh] overflow-y-auto w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
             <div className="flex justify-between items-center"><h2 id="cards-title" className="text-lg font-bold">Meus cartões</h2><button onClick={() => setIsCardsMenuOpen(false)} aria-label="Fechar">✕</button></div>
             <p className="text-sm text-slate-500">Crie cartões separados para você, seus produtos e empresas.</p>
             {buddies.filter(b => b.ownerGithubId === authUser.githubId).map(b => <button key={b.id} onClick={() => { setIsCardsMenuOpen(false); handleOpenEditBuddy(b); }} className="block w-full rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-left text-sm">Editar {b.name}</button>)}

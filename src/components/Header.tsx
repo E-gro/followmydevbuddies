@@ -34,6 +34,7 @@ interface HeaderProps {
   onLogout: () => void;
   onOpenSpeedRun: () => void;
   onOpenGithubModal: () => void;
+  compact?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogout,
   onOpenSpeedRun,
   onOpenGithubModal,
+  compact = false,
 }) => {
   const pendingCount = Math.max(0, totalLinks - followedCount);
 
@@ -59,13 +61,13 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Open Source Collaboration Invite Banner */}
       <div className="border-b border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-2 sm:py-2.5 sm:flex-wrap sm:gap-3">
           <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
               <GitPullRequest className="h-3 w-3" />
               Open Source
             </span>
-            <span>
+            <span className="hidden sm:inline">
               Este portal é da comunidade! Tem ideias de features, melhorias de UI ou automações?{' '}
               <strong className="text-slate-900 dark:text-white font-semibold">
                 Colabore com o projeto no GitHub!
@@ -80,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 shadow-xs hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all"
           >
             <SocialIcon platform="github" className="h-3.5 w-3.5" />
-            <span>Repositório no GitHub</span>
+            <span className="sm:hidden">GitHub</span><span className="hidden sm:inline">Repositório no GitHub</span>
             <ExternalLink className="h-3 w-3 opacity-70" />
           </a>
         </div>
@@ -88,9 +90,9 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 py-4 border-b border-slate-200/70 dark:border-slate-800/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 py-3 sm:py-4 border-b border-slate-200/70 dark:border-slate-800/60">
           <div className="flex items-center gap-3">
-            <FmdbLogo className="h-11 w-11 shrink-0 drop-shadow-md" />
+            <FmdbLogo className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 drop-shadow-md" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display text-lg font-bold tracking-tight text-slate-900 dark:text-white">
@@ -101,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Amigos do Mag
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
                 Hub oficial de conexões da comunidade • Autenticado via GitHub
               </p>
             </div>
@@ -115,6 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
               title={
                 theme === 'dark' ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'
               }
+              aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
             >
               {theme === 'dark' ? (
                 <Sun className="h-4 w-4 text-amber-400" />
@@ -131,6 +134,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
               }`}
               title="Configurar 1-Click Follow automático no GitHub"
+              aria-label="Configurar 1-Click Follow no GitHub"
             >
               <KeyRound className="h-3.5 w-3.5" />
               <span className="hidden md:inline">
@@ -174,6 +178,7 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={onLogout}
                   className="rounded-xl p-1.5 text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800 hover:text-rose-500 transition-colors cursor-pointer"
                   title="Sair da conta do GitHub"
+                  aria-label="Sair da conta do GitHub"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                 </button>
@@ -191,14 +196,14 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Hero banner */}
-        <div className="py-8 sm:py-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className={`${compact ? 'hidden sm:flex' : 'flex'} py-5 sm:py-10 flex-col lg:flex-row lg:items-center lg:justify-between gap-4 sm:gap-6`}>
           <div className="max-w-2xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
+            <div className="hidden sm:inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">
               <Crown className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
               <span>Comunidade Amigos do Mag • Diretório Oficial de Devs</span>
             </div>
 
-            <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+            <h1 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
               Fortaleça o algoritmo dos seus{' '}
               <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 bg-clip-text text-transparent">
                 Dev Buddies
@@ -206,15 +211,15 @@ export const Header: React.FC<HeaderProps> = ({
               em segundos.
             </h1>
 
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p className="hidden sm:block text-sm sm:text-base text-slate-600 dark:text-slate-400 leading-relaxed">
               Entre com seu <strong className="text-slate-900 dark:text-slate-200 font-medium">GitHub</strong> para criar ou editar seu card a qualquer momento.
               Siga a galera no <strong className="text-slate-900 dark:text-slate-200 font-medium">Instagram, TikTok, GitHub e LinkedIn</strong> e suba de patente no ranking da comunidade!
             </p>
           </div>
 
           {/* Quick stats cards */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800/90 bg-slate-50/90 dark:bg-slate-900/60 p-4 backdrop-blur-md">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 shrink-0">
+            <div className="min-w-0 rounded-2xl border border-slate-200 dark:border-slate-800/90 bg-slate-50/90 dark:bg-slate-900/60 p-3 sm:p-4 backdrop-blur-md">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <Users className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                 <span>Devs</span>
@@ -225,7 +230,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] text-slate-500">na comunidade</span>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800/90 bg-slate-50/90 dark:bg-slate-900/60 p-4 backdrop-blur-md">
+            <div className="min-w-0 rounded-2xl border border-slate-200 dark:border-slate-800/90 bg-slate-50/90 dark:bg-slate-900/60 p-3 sm:p-4 backdrop-blur-md">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                 <Sparkles className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
                 <span>Redes</span>
@@ -236,7 +241,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-[11px] text-slate-500">links seguros</span>
             </div>
 
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/20 p-4 backdrop-blur-md">
+            <div className="min-w-0 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/20 p-3 sm:p-4 backdrop-blur-md">
               <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Seguidos</span>

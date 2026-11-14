@@ -95,8 +95,8 @@ export const SpeedRunModal: React.FC<SpeedRunModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D111A] p-6 shadow-2xl">
+    <div role="dialog" aria-modal="true" aria-label="Fila rápida" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 p-3 sm:p-4 backdrop-blur-md">
+      <div className="relative max-h-[90dvh] overflow-y-auto w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0D111A] p-5 sm:p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-4">
           <div className="flex items-center gap-2.5">
@@ -114,6 +114,7 @@ export const SpeedRunModal: React.FC<SpeedRunModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Fechar fila rápida"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             <X className="h-5 w-5" />

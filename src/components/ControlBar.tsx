@@ -105,7 +105,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
               />
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-[11px] text-slate-500 dark:text-slate-400">
               <span>{currentTier.description}</span>
               {nextTier ? (
                 <span>
@@ -239,7 +239,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
         </div>
 
         {/* Status Filter Pills */}
-        <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-1 shrink-0 shadow-xs dark:shadow-none">
+        <div className="flex w-full sm:w-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-1 shrink-0 shadow-xs dark:shadow-none [&>button]:flex-1 [&>button]:justify-center [&>button]:px-2">
           <button
             onClick={() => onStatusFilterChange('all')}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all cursor-pointer ${

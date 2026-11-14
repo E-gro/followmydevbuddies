@@ -29,6 +29,7 @@ import {
 } from '../utils/avatarBank';
 import { GitHubAuthUser } from './GitHubAuthModal';
 import { SocialIcon } from './SocialIcon';
+import { ProfileLookup } from './ProfileLookup';
 
 interface AddBuddyModalProps {
   isOpen: boolean;
@@ -724,6 +725,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
                         {invalidMsg ? `⚠️ ${invalidMsg}` : `✓ Vai abrir: ${previewUrl}`}
                       </p>
                     )}
+                    {(platform.id === 'github' || platform.id === 'bluesky') && <ProfileLookup platform={platform.id} value={rawVal} />}
                   </div>
                 );
               })}

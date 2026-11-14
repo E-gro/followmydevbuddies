@@ -34,6 +34,7 @@ interface AddBuddyModalProps {
   isOpen: boolean;
   editingBuddy: DevBuddy | null;
   authUser: GitHubAuthUser | null;
+  additionalCard?: boolean;
   onClose: () => void;
   onSaveBuddy: (buddy: DevBuddy, isEdit: boolean) => void;
 }
@@ -42,6 +43,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
   isOpen,
   editingBuddy,
   authUser,
+  additionalCard = false,
   onClose,
   onSaveBuddy,
 }) => {
@@ -94,7 +96,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
       setSocials({
         instagram: editingBuddy.socials.instagram || '',
         tiktok: editingBuddy.socials.tiktok || '',
-        github: editingBuddy.socials.github || authUser?.login || '',
+        github: editingBuddy.socials.github || '',
         linkedin: editingBuddy.socials.linkedin || '',
         twitter: editingBuddy.socials.twitter || '',
         youtube: editingBuddy.socials.youtube || '',
@@ -102,7 +104,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
         website: editingBuddy.socials.website || '',
       });
       setGithubLookup(editingBuddy.socials.github || authUser?.login || '');
-    } else if (authUser) {
+    } else if (authUser && !additionalCard) {
       // Pre-populate from authenticated GitHub user
       setName(authUser.name);
       setRole('Software Developer');
@@ -141,7 +143,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
       });
       setGithubLookup('');
     }
-  }, [isOpen, editingBuddy, authUser]);
+  }, [isOpen, editingBuddy, authUser, additionalCard]);
 
   if (!isOpen) return null;
 
@@ -175,7 +177,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
 
       setSocials((prev) => ({
         ...prev,
-        github: authUser ? authUser.login : data.login || cleanUser,
+        github: data.login || cleanUser,
         twitter: data.twitter_username || prev.twitter,
         website: data.blog || prev.website,
       }));
@@ -267,9 +269,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
     const savedBuddy: DevBuddy = {
       id: editingBuddy
         ? editingBuddy.id
-        : authUser
-        ? `gh-${authUser.githubId}`
-        : `buddy-${Date.now()}`,
+        : `new:${crypto.randomUUID()}`,
       name: name.trim(),
       role: role.trim() || 'Developer',
       companyOrProject: companyOrProject.trim() || 'Amigos do Mag',
@@ -284,6 +284,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
       isOwnerCard: true,
       communityFollowsDone: editingBuddy?.communityFollowsDone || 0,
       joinedAt: editingBuddy?.joinedAt || new Date().toISOString().slice(0, 10),
+      tools: editingBuddy?.tools,
     };
 
     onSaveBuddy(savedBuddy, Boolean(editingBuddy));
@@ -665,8 +666,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
               {PLATFORMS.map((platform) => {
                 const rawVal = socials[platform.id] || '';
                 const hasVal = Boolean(rawVal.trim());
-                const isLockedGithub =
-                  platform.id === 'github' && Boolean(authUser?.login);
+                const isLockedGithub = false;
 
                 let previewUrl = '';
                 let invalidMsg = '';

@@ -32,6 +32,8 @@ export interface DevBuddy {
   /** Number of community connections this member has already followed */
   communityFollowsDone: number;
   joinedAt: string;
+  ownerGithubId?: number;
+  tools?: { ides: string[]; agents: string[] };
 }
 
 export type FollowStatusFilter = 'all' | 'pending' | 'completed';

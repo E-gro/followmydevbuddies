@@ -3,7 +3,7 @@ import { DevBuddy } from '../types';
 function getApiEndpoint(): string {
   if (typeof window === 'undefined') return '/api/fmdb';
   const host = window.location.hostname;
-  if (host === 'pixelstd.com.br' || host.endsWith('.workers.dev')) {
+  if (host === 'pixelstd.com.br' || host === 'fmdb.pixelstd.com.br' || host.endsWith('.workers.dev')) {
     return '/api/fmdb';
   }
   return 'https://pixelstd.com.br/api/fmdb';

@@ -21,6 +21,7 @@ import { SpeedRunModal } from './components/SpeedRunModal';
 import { GitHubConnectModal } from './components/GitHubConnectModal';
 import { GitHubAuthModal, GitHubAuthUser } from './components/GitHubAuthModal';
 import { FmdbLogo } from './components/FmdbLogo';
+import { CommunityTools } from './components/CommunityTools';
 import {
   Sparkles,
   UserPlus,
@@ -103,6 +104,7 @@ export function App() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCardsMenuOpen, setIsCardsMenuOpen] = useState(false);
   const [editingBuddy, setEditingBuddy] = useState<DevBuddy | null>(null);
   const [isSpeedRunOpen, setIsSpeedRunOpen] = useState(false);
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
@@ -157,9 +159,7 @@ export function App() {
                 twitterUsername: data.twitter_username || '',
                 accessToken: token,
               };
-              setAuthUser(user);
-              setGithubToken(token);
-              showToast(`Autenticado via GitHub OAuth como @${user.login}!`);
+              handleSuccessGithubAuth(user);
             }
           })
           .catch(() => {});
@@ -243,8 +243,7 @@ export function App() {
 
     const myCard = buddies.find(
       (b) =>
-        b.id === `gh-${authUser.githubId}` ||
-        b.socials.github?.toLowerCase() === authUser.login.toLowerCase()
+        b.ownerGithubId === authUser.githubId
     );
     if (myCard && myCard.communityFollowsDone !== followedCount) {
       setBuddies((prev) =>
@@ -352,8 +351,7 @@ export function App() {
 
     const existing = buddies.find(
       (b) =>
-        b.id === `gh-${user.githubId}` ||
-        b.socials.github?.toLowerCase() === user.login.toLowerCase()
+        b.ownerGithubId === user.githubId
     );
 
     if (existing) {
@@ -384,25 +382,9 @@ export function App() {
     const activeToken = authUser.accessToken || githubToken;
     const buddyWithScore: DevBuddy = {
       ...savedBuddy,
-      id: `gh-${authUser.githubId}`,
-      socials: {
-        ...savedBuddy.socials,
-        github: authUser.login,
-      },
       communityFollowsDone: followedCount,
     };
 
-    if (isEdit) {
-      setBuddies((prev) =>
-        prev.map((b) => (b.id === buddyWithScore.id ? buddyWithScore : b))
-      );
-    } else {
-      setBuddies((prev) => [
-        buddyWithScore,
-        ...prev.filter((b) => b.id !== buddyWithScore.id),
-      ]);
-      setOwnBuddyId(buddyWithScore.id);
-    }
     setEditingBuddy(null);
 
     const res = await upsertCloudBuddy(buddyWithScore, activeToken);
@@ -415,15 +397,14 @@ export function App() {
           : `Card de @${authUser.login} publicado na Amigos do Mag!`
       );
     } else {
-      showToast(res.error || 'Card salvo localmente.');
+      showToast(res.error || 'Não foi possível publicar o cartão.');
     }
   };
 
   const handleOpenEditBuddy = (buddy: DevBuddy) => {
     if (
       !authUser ||
-      (buddy.id !== `gh-${authUser.githubId}` &&
-        buddy.socials.github?.toLowerCase() !== authUser.login.toLowerCase())
+      buddy.ownerGithubId !== authUser.githubId
     ) {
       setIsAuthModalOpen(true);
       return;
@@ -437,17 +418,7 @@ export function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    const own = buddies.find(
-      (b) =>
-        b.id === `gh-${authUser.githubId}` ||
-        b.socials.github?.toLowerCase() === authUser.login.toLowerCase()
-    );
-    if (own) {
-      handleOpenEditBuddy(own);
-    } else {
-      setEditingBuddy(null);
-      setIsAddModalOpen(true);
-    }
+    setIsCardsMenuOpen(true);
   };
 
   const handleGithubApiFollow = async (
@@ -536,6 +507,24 @@ export function App() {
           onOpenGithubModal={() => setIsGithubModalOpen(true)}
         />
 
+        <CommunityTools
+          buddies={buddies}
+          ownBuddy={authUser ? (buddies.find(b => b.ownerGithubId === authUser.githubId && b.tools) || buddies.find(b => b.ownerGithubId === authUser.githubId)) : undefined}
+          authenticated={Boolean(authUser)}
+          onLogin={() => setIsAuthModalOpen(true)}
+          onSave={async (tools) => {
+            if (!authUser) return false;
+            const buddy = buddies.find(b => b.ownerGithubId === authUser.githubId && b.tools) || buddies.find(b => b.ownerGithubId === authUser.githubId);
+            if (!buddy) return false;
+            const result = await upsertCloudBuddy({ ...buddy, tools }, authUser.accessToken || githubToken);
+            if (!result.ok || !result.buddies) return false;
+            const saved = result.buddies.find(b => b.id === buddy.id);
+            if (!saved?.tools) return false;
+            setBuddies(result.buddies);
+            return true;
+          }}
+        />
+
         {/* Controls & Filters */}
         <ControlBar
           searchQuery={searchQuery}
@@ -560,9 +549,7 @@ export function App() {
               {filteredBuddies.map((buddy) => {
                 const isOwn = Boolean(
                   authUser &&
-                    (buddy.id === `gh-${authUser.githubId}` ||
-                      buddy.socials.github?.toLowerCase() ===
-                        authUser.login.toLowerCase())
+                    buddy.ownerGithubId === authUser.githubId
                 );
                 return (
                   <BuddyCard
@@ -662,6 +649,16 @@ export function App() {
       </footer>
 
       {/* Modals */}
+      {isCardsMenuOpen && authUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-labelledby="cards-title">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 space-y-4">
+            <div className="flex justify-between items-center"><h2 id="cards-title" className="text-lg font-bold">Meus cartões</h2><button onClick={() => setIsCardsMenuOpen(false)} aria-label="Fechar">✕</button></div>
+            <p className="text-sm text-slate-500">Crie cartões separados para você, seus produtos e empresas.</p>
+            {buddies.filter(b => b.ownerGithubId === authUser.githubId).map(b => <button key={b.id} onClick={() => { setIsCardsMenuOpen(false); handleOpenEditBuddy(b); }} className="block w-full rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-left text-sm">Editar {b.name}</button>)}
+            <button onClick={() => { setIsCardsMenuOpen(false); setEditingBuddy(null); setIsAddModalOpen(true); }} className="w-full rounded-xl bg-emerald-500 px-4 py-3 font-bold text-slate-950">Criar novo cartão</button>
+          </div>
+        </div>
+      )}
       <GitHubAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -672,6 +669,7 @@ export function App() {
         isOpen={isAddModalOpen}
         editingBuddy={editingBuddy}
         authUser={authUser}
+        additionalCard={Boolean(authUser && buddies.some(b => b.ownerGithubId === authUser.githubId))}
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingBuddy(null);

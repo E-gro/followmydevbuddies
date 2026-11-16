@@ -26,7 +26,7 @@ export async function fmdbApi(request: Request, db: FmdbDatabase, env: SessionEn
     const imageHeaders = {'Content-Type':image.type,'Cache-Control':'public, max-age=31536000, immutable','ETag':etag,'X-Content-Type-Options':'nosniff'};
     return request.headers.get('if-none-match') === etag
       ? new Response(null,{status:304,headers:imageHeaders})
-      : new Response(image.bytes,{headers:imageHeaders});
+      : new Response(new Uint8Array(image.bytes).buffer,{headers:imageHeaders});
   }
   if (request.method === "GET") return json({ ok: true, buddies: await all(db) });
   if (request.method !== "POST") return json({ ok: false }, 405);

@@ -71,13 +71,12 @@ export function buildDiceBearUrl(
 }
 
 /**
- * Resizes and center-crops an uploaded image file to a 240x240 Data URL
- * so it can be stored cleanly in localStorage or a database without huge payloads.
+ * Recorta para 256px e envia WebP compacto. A API pública devolve uma URL da imagem.
  */
 export function processUploadedAvatar(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) {
-      reject(new Error('Selecione um arquivo de imagem válido (PNG, JPG, WebP).'));
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      reject(new Error('Selecione PNG, JPG ou WebP de até 5 MB.'));
       return;
     }
 
@@ -87,7 +86,7 @@ export function processUploadedAvatar(file: File): Promise<string> {
       const img = new Image();
       img.onerror = () => reject(new Error('Imagem inválida ou corrompida.'));
       img.onload = () => {
-        const size = 240;
+        const size = 256;
         const canvas = document.createElement('canvas');
         canvas.width = size;
         canvas.height = size;
@@ -103,7 +102,9 @@ export function processUploadedAvatar(file: File): Promise<string> {
         const sy = (img.height - minSide) / 2;
 
         ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/jpeg', 0.88));
+        const result = canvas.toDataURL('image/webp', 0.8);
+        if (result.length > 65560) reject(new Error('A foto ficou muito grande. Escolha outra imagem.'));
+        else resolve(result);
       };
       img.src = reader.result as string;
     };

@@ -75,7 +75,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
   });
 
   // Avatar Bank State
-  const [avatarTab, setAvatarTab] = useState<'bank' | 'upload' | 'github'>('bank');
+  const [avatarTab, setAvatarTab] = useState<'bank' | 'upload' | 'github'>('github');
   const [selectedStyle, setSelectedStyle] = useState('notionists');
   const [selectedBgColor, setSelectedBgColor] = useState('059669');
   const [seedOffset, setSeedOffset] = useState(0);
@@ -87,6 +87,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
     if (!isOpen) return;
     setFormError('');
     setGithubMessage(null);
+    setAvatarTab('github');
 
     if (editingBuddy) {
       setName(editingBuddy.name);
@@ -514,7 +515,7 @@ export const AddBuddyModal: React.FC<AddBuddyModalProps> = ({
             {avatarTab === 'upload' && (
               <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Envie uma imagem PNG, JPG ou WebP do seu computador ou celular. Ela será recortada automaticamente em formato quadrado (240x240px).
+                  Envie PNG, JPG ou WebP de até 5 MB. A foto será recortada para 256×256px e compactada antes do envio.
                 </p>
                 <input
                   ref={fileInputRef}

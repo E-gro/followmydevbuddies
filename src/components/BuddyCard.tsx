@@ -176,6 +176,10 @@ export const BuddyCard: React.FC<BuddyCardProps> = ({
           <img
             src={buddy.avatarUrl}
             alt={buddy.name}
+            loading="lazy"
+            decoding="async"
+            width={56}
+            height={56}
             className={`h-14 w-14 rounded-2xl object-cover border shrink-0 bg-slate-100 dark:bg-slate-800 ${
               currentTier.level === 5
                 ? 'border-amber-400/60'

@@ -112,6 +112,7 @@ export function App() {
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [onboardingPending, setOnboardingPending] = useState(false);
   const [isCardsMenuOpen, setIsCardsMenuOpen] = useState(false);
   const [isModerationOpen, setIsModerationOpen] = useState(false);
   const [reports, setReports] = useState<ModerationItem[]>([]);
@@ -173,12 +174,22 @@ export function App() {
       if (!active || !user) return;
       setAuthUser(user); setGithubToken('session');
       if (returned) {
+        setOnboardingPending(true);
         showToast(`Conectado como @${user.login}.`);
         if (sessionStorage.getItem('fmdb_return_to_tools') === 'true') { sessionStorage.removeItem('fmdb_return_to_tools'); window.location.hash = 'ferramentas'; }
       }
     });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!onboardingPending || !authUser || !cloudSynced) return;
+    setOnboardingPending(false);
+    if (!buddies.some(b => b.ownerGithubId === authUser.githubId)) {
+      setEditingBuddy(null);
+      setIsAddModalOpen(true);
+    }
+  }, [onboardingPending, authUser, cloudSynced, buddies]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -439,7 +450,10 @@ export function App() {
       setIsAuthModalOpen(true);
       return;
     }
-    setIsCardsMenuOpen(true);
+    if (!buddies.some(b => b.ownerGithubId === authUser.githubId)) {
+      setEditingBuddy(null);
+      setIsAddModalOpen(true);
+    } else setIsCardsMenuOpen(true);
   };
 
   const handleGithubApiFollow = async (

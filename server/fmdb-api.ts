@@ -1,6 +1,7 @@
 import { sanitizeBuddy, sanitizeHandle, type DevBuddy } from "./app/api/fmdb/route";
 import { getSession, type SessionEnv } from './fmdb-session';
 import { backupCommunity } from './fmdb-backup';
+import { avatarVersion, decodeAvatar, publicAvatar } from './fmdb-avatar';
 
 type Statement = { bind(...args: unknown[]): Statement; all<T>(): Promise<{ results: T[] }>; first<T>(): Promise<T | null>; run(): Promise<unknown> };
 export type FmdbDatabase = { prepare(sql: string): Statement; batch(statements: Statement[]): Promise<unknown> };
@@ -8,9 +9,25 @@ const headers = { "Content-Type": "application/json; charset=utf-8", "Cache-Cont
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
 async function all(db: FmdbDatabase) {
   const result = await db.prepare("SELECT payload FROM cards WHERE NOT EXISTS (SELECT 1 FROM hidden_cards WHERE card_id = cards.id) ORDER BY rowid DESC").all<{ payload: string }>();
-  return result.results.map(row => JSON.parse(row.payload));
+  return Promise.all(result.results.map(async row => {
+    const card = JSON.parse(row.payload) as DevBuddy;
+    return { ...card, avatarUrl: await publicAvatar(card.id, card.avatarUrl || '') };
+  }));
 }
 export async function fmdbApi(request: Request, db: FmdbDatabase, env: SessionEnv) {
+  const url = new URL(request.url);
+  if (request.method === 'GET' && url.searchParams.has('avatar')) {
+    const id = url.searchParams.get('avatar') || '';
+    const row = await db.prepare('SELECT payload FROM cards WHERE id = ? AND NOT EXISTS (SELECT 1 FROM hidden_cards WHERE card_id = cards.id)').bind(id).first<{payload:string}>();
+    const value = row ? (JSON.parse(row.payload) as DevBuddy).avatarUrl : '';
+    const image = decodeAvatar(value);
+    if (!image || url.searchParams.get('v') !== await avatarVersion(value)) return new Response(null, {status:404,headers:{'Cache-Control':'no-store'}});
+    const etag = `"${url.searchParams.get('v')}"`;
+    const imageHeaders = {'Content-Type':image.type,'Cache-Control':'public, max-age=31536000, immutable','ETag':etag,'X-Content-Type-Options':'nosniff'};
+    return request.headers.get('if-none-match') === etag
+      ? new Response(null,{status:304,headers:imageHeaders})
+      : new Response(new Uint8Array(image.bytes).buffer,{headers:imageHeaders});
+  }
   if (request.method === "GET") return json({ ok: true, buddies: await all(db) });
   if (request.method !== "POST") return json({ ok: false }, 405);
   if (request.headers.get("origin") !== new URL(request.url).origin) return json({ ok: false, error: "Origem inválida." }, 403);
@@ -108,6 +125,14 @@ export async function fmdbApi(request: Request, db: FmdbDatabase, env: SessionEn
       const clean = sanitizeBuddy(input, user);
       if (!clean) return json({ ok: false, error: "Dados de perfil inválidos." }, 400);
       const previous = existing ? JSON.parse(existing.payload) as DevBuddy : null;
+      // A URL returned by this API is a reference to the existing image, not a new upload.
+      if (input.avatarUrl?.startsWith('/api/fmdb?avatar=')) {
+        if (!previous || input.avatarUrl !== await publicAvatar(previous.id, previous.avatarUrl)) return json({ok:false,error:'Referência de foto inválida.'},400);
+        clean.avatarUrl = previous.avatarUrl;
+      } else if (input.avatarUrl?.startsWith('data:')) {
+        if (!decodeAvatar(input.avatarUrl)) return json({ok:false,error:'Foto inválida ou acima de 48 KB. Envie JPG, PNG ou WebP.'},400);
+        clean.avatarUrl = input.avatarUrl;
+      } else clean.avatarUrl = await publicAvatar(clean.id, input.avatarUrl || '');
       const progress = await db.prepare('SELECT COUNT(*) AS total FROM community_follows WHERE owner_id = ? AND NOT EXISTS (SELECT 1 FROM hidden_cards WHERE hidden_cards.card_id = community_follows.card_id)').bind(user.id).first<{total:number}>();
       const card = { ...clean, id: existing ? input.id : `card-${crypto.randomUUID()}`, ownerGithubId: user.id,
         communityFollowsDone: Number(progress?.total || 0),
